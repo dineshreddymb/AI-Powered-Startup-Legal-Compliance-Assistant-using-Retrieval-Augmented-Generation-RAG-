@@ -162,7 +162,7 @@ This script:
 
 * Loads PDF legal documents
 * Splits text into chunks
-* Generates embeddings with the `all-mpnet-base-v2` model
+* Generates embeddings with the `BAAI/bge-base-en-v1.5` model
 * Stores vectors in a persisted local Chroma database
 
 ---

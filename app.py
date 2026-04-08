@@ -12,7 +12,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 CHROMA_DB_PATH = "chroma_db"
 CHROMA_COLLECTION_NAME = "startup_legal_compliance"
 VECTORSTORE_CONFIG_PATH = os.path.join(CHROMA_DB_PATH, "rag_config.json")
-EMBEDDING_MODEL = "all-mpnet-base-v2"
+EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
 EMBEDDING_DIMENSIONS = 768
 LLM_MODEL = "llama-3.3-70b-versatile"
 TOP_K = 5
@@ -42,6 +42,7 @@ st.set_page_config(
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 if not GROQ_API_KEY or GROQ_API_KEY == "your_groq_api_key_here":
     st.error("GROQ_API_KEY not found or not set.")
@@ -80,7 +81,16 @@ for key, expected_value in expected_config.items():
 
 @st.cache_resource(show_spinner="Loading embedding model...")
 def load_embeddings():
-    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    model_kwargs = {}
+    if HF_TOKEN:
+        model_kwargs["token"] = HF_TOKEN
+
+    return HuggingFaceEmbeddings(
+        model=EMBEDDING_MODEL,
+        model_kwargs=model_kwargs,
+        encode_kwargs={"normalize_embeddings": True},
+        query_encode_kwargs={"normalize_embeddings": True},
+    )
 
 
 @st.cache_resource(show_spinner="Loading legal document index...")

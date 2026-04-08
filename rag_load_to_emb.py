@@ -12,13 +12,18 @@ DATA_PATH = "rag_data_documents"
 CHROMA_DB_PATH = "chroma_db"
 CHROMA_COLLECTION_NAME = "startup_legal_compliance"
 VECTORSTORE_CONFIG_PATH = os.path.join(CHROMA_DB_PATH, "rag_config.json")
-EMBEDDING_MODEL = "all-mpnet-base-v2"
+EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
 EMBEDDING_DIMENSIONS = 768
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
 
 def main():
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    hf_token = os.getenv("HF_TOKEN")
+
     if not os.path.exists(DATA_PATH):
         print(f"ERROR: Data directory '{DATA_PATH}' not found.")
         print(f"Make sure your PDF files are inside a folder named '{DATA_PATH}'.")
@@ -66,7 +71,16 @@ def main():
 
     print(f"\nLoading embedding model '{EMBEDDING_MODEL}'...")
     try:
-        embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        model_kwargs = {}
+        if hf_token:
+            model_kwargs["token"] = hf_token
+
+        embedding_model = HuggingFaceEmbeddings(
+            model=EMBEDDING_MODEL,
+            model_kwargs=model_kwargs,
+            encode_kwargs={"normalize_embeddings": True},
+            query_encode_kwargs={"normalize_embeddings": True},
+        )
     except Exception as e:
         print(f"ERROR: Failed to load embedding model: {e}")
         print("Check your internet connection or ensure the model is cached locally.")
