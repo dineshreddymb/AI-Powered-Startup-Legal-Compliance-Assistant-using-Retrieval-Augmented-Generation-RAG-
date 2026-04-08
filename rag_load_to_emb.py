@@ -1,20 +1,24 @@
+import json
 import os
+import shutil
 import sys
 
 from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 DATA_PATH = "rag_data_documents"
-FAISS_INDEX_PATH = "faiss_index"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+CHROMA_DB_PATH = "chroma_db"
+CHROMA_COLLECTION_NAME = "startup_legal_compliance"
+VECTORSTORE_CONFIG_PATH = os.path.join(CHROMA_DB_PATH, "rag_config.json")
+EMBEDDING_MODEL = "all-mpnet-base-v2"
+EMBEDDING_DIMENSIONS = 768
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
 
 def main():
-    # Validate data directory
     if not os.path.exists(DATA_PATH):
         print(f"ERROR: Data directory '{DATA_PATH}' not found.")
         print(f"Make sure your PDF files are inside a folder named '{DATA_PATH}'.")
@@ -25,16 +29,15 @@ def main():
         print(f"ERROR: No PDF files found in '{DATA_PATH}'.")
         sys.exit(1)
 
-    # Check if index already exists
-    if os.path.exists(FAISS_INDEX_PATH):
+    if os.path.exists(CHROMA_DB_PATH):
         answer = input(
-            f"FAISS index already exists at '{FAISS_INDEX_PATH}'. Rebuild? [y/n]: "
+            f"Chroma DB already exists at '{CHROMA_DB_PATH}'. Rebuild? [y/n]: "
         ).strip().lower()
         if answer != "y":
             print("Skipping rebuild. Existing index kept.")
             sys.exit(0)
+        shutil.rmtree(CHROMA_DB_PATH, ignore_errors=True)
 
-    # Step 1: Load all PDFs
     print(f"\nLoading PDFs from '{DATA_PATH}'...")
     documents = []
     for file in sorted(pdf_files):
@@ -53,39 +56,50 @@ def main():
 
     print(f"\nTotal pages loaded: {len(documents)}")
 
-    # Step 2: Split into chunks
     print("\nSplitting documents into chunks...")
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP
+        chunk_overlap=CHUNK_OVERLAP,
     )
     chunks = text_splitter.split_documents(documents)
     print(f"Total chunks created: {len(chunks)}")
 
-    # Step 3: Load embedding model (downloads ~90MB on first run)
     print(f"\nLoading embedding model '{EMBEDDING_MODEL}'...")
-    print("(This may take a minute on first run — model will be cached locally.)")
     try:
         embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     except Exception as e:
         print(f"ERROR: Failed to load embedding model: {e}")
-        print("Check your internet connection or set HF_HUB_OFFLINE=1 if using cached model.")
+        print("Check your internet connection or ensure the model is cached locally.")
         sys.exit(1)
 
-    # Step 4: Build FAISS index
-    print("\nBuilding FAISS vector index...")
+    print("\nBuilding persisted Chroma vector database...")
     try:
-        vectordb = FAISS.from_documents(documents=chunks, embedding=embedding_model)
+        Chroma.from_documents(
+            documents=chunks,
+            embedding=embedding_model,
+            collection_name=CHROMA_COLLECTION_NAME,
+            persist_directory=CHROMA_DB_PATH,
+        )
     except Exception as e:
-        print(f"ERROR: Failed to build FAISS index: {e}")
+        print(f"ERROR: Failed to build Chroma DB: {e}")
         sys.exit(1)
 
-    # Step 5: Save index
-    vectordb.save_local(FAISS_INDEX_PATH)
-    abs_path = os.path.abspath(FAISS_INDEX_PATH)
-    print(f"\nFAISS index saved to: {abs_path}")
-    print("  - faiss_index/index.faiss")
-    print("  - faiss_index/index.pkl")
+    abs_path = os.path.abspath(CHROMA_DB_PATH)
+    os.makedirs(CHROMA_DB_PATH, exist_ok=True)
+    with open(VECTORSTORE_CONFIG_PATH, "w", encoding="utf-8") as config_file:
+        json.dump(
+            {
+                "collection_name": CHROMA_COLLECTION_NAME,
+                "embedding_model": EMBEDDING_MODEL,
+                "embedding_dimensions": EMBEDDING_DIMENSIONS,
+            },
+            config_file,
+            indent=2,
+        )
+
+    print(f"\nChroma DB saved to: {abs_path}")
+    print(f"Collection name: {CHROMA_COLLECTION_NAME}")
+    print("Persistence is handled automatically by Chroma.")
     print("\nDone! You can now run the Streamlit app:")
     print("  streamlit run app.py")
 

@@ -15,7 +15,7 @@ The assistant allows startup founders and business owners to quickly understand 
 
 * Retrieval-Augmented Generation (RAG) architecture
 * Semantic search using vector embeddings
-* FAISS vector database for fast document retrieval
+* Chroma vector database with local persistence
 * Context-aware answers using LLM
 * Source citation for transparency
 * Streamlit interactive chatbot interface
@@ -38,7 +38,7 @@ Recursive Text Splitter
 HuggingFace Embeddings
         │
         ▼
-FAISS Vector Database
+Chroma Vector Database
         │
         ▼
 Retriever
@@ -64,16 +64,15 @@ AI-Legal-Compliance-Assistant
 │   ├── code_on_wages_2019.pdf
 │   └── startup_india_action_plan.pdf
 │
-├── faiss_index
-│   ├── index.faiss
-│   └── index.pkl
+├── chroma_db
+│   └── ... persisted Chroma collection files ...
 │
-├── ingest.py
+├── rag_load_to_emb.py
 ├── app.py
 ├── requirements.txt
 │
 ├── README.md
-└── Problem_Statement.md
+└── problem statement.md
 ```
 
 ---
@@ -104,7 +103,7 @@ The system uses official legal and policy documents related to Indian startup co
 
 * LangChain
 * HuggingFace Embeddings
-* FAISS
+* ChromaDB
 * Streamlit
 * PyMuPDF
 
@@ -145,7 +144,7 @@ pip install -r requirements.txt
 
 Create a `.env` file.
 
-```
+```env
 GROQ_API_KEY=your_api_key_here
 ```
 
@@ -156,15 +155,15 @@ GROQ_API_KEY=your_api_key_here
 Run the ingestion script to process legal documents.
 
 ```bash
-python ingest.py
+python rag_load_to_emb.py
 ```
 
 This script:
 
 * Loads PDF legal documents
 * Splits text into chunks
-* Generates embeddings
-* Stores vectors in FAISS database
+* Generates embeddings with the `all-mpnet-base-v2` model
+* Stores vectors in a persisted local Chroma database
 
 ---
 
